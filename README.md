@@ -10,22 +10,22 @@
      $ python3 -m venv venv
      ```
 
-2. **Preparación del entorno y dependencias:**
+2. **Preparación del entorno:**
 
    - Activar el entorno virtual y proceder a instalar las librerías necesarias.
      ```
      $ source venv/bin/activate
-     $ pip install -r requirements.txt
      ```
 
 3. **Ejecución de los ejercicios:**
 
-   - Para comenzar, ejecutar el primer ejercicio.
+   - Ejecutar el primer ejercicio.
      ```
-     $ python3 ejercicio1.py
+     $ python3 TP_PDI_ejercicio1.py
+     ```
+   - Ejecutar el segundo ejercicio.
+     ```
+     $ python3 TP_PDI_ejercicio2.py
      ```
 
-   - Para el segundo ejercicio, asegurarse de pasar las imágenes durante la ejecución. Las imágenes de prueba se encuentran en el directorio `img`.
-     ```
-     $ python3 ejercicio2.py img/formulario_0*
-     ```
+
