@@ -42,11 +42,9 @@ def opcion_marcada(cell, umbral):
 def obtener_respuestas_marcadas(image, umbral):
     """
     Detecta las celdas de respuesta en una imagen de examen de opción múltiple y visualiza los resultados.
-
     Args:
         image (numpy.ndarray): Imagen en escala de grises del examen.
         umbral (int): Umbral para la binarización de la imagen.
-
     Returns:
         dict: Diccionario que asocia el número de pregunta con la posición de la celda marcada: {numero_pregunta: (x0, y0, x1, y1), ...}.
     """
@@ -79,89 +77,39 @@ def obtener_respuestas_marcadas(image, umbral):
 
     return respuestas_estudiante
 
+################COMPARAR CON RESPUESTAS CORRECTAS
+"""def comparar_rtas_correctas(imagen_umbralizada):
+    
+    result_image = np.empty(imagen_umbralizada.shape)
 
-#def comparar_respuestas(respuestas_correctas, respuestas_estudiante):
-#    respuestas_evaluadas = {}
+    rtas_correctas = 'AABADBDCBADACCDDACCDBACCC'
 
- #   for numero_pregunta, respuesta_correcta in respuestas_correctas.items():
-  #      if numero_pregunta in respuestas_estudiante:
-   #         respuesta_estudiante = respuestas_estudiante[numero_pregunta]
-    #        estado = 'OK' if respuesta_estudiante == respuesta_correcta else 'MAL'
-     #   else:
-      #      estado = 'NO RESPONDIÓ'
-       # respuestas_evaluadas[numero_pregunta] = estado
-def comparar_respuestas(respuestas_correctas, respuestas_estudiante):
-    respuestas_evaluadas = {}
+    # Convertir el texto en una cadena de texto
+    text = pytesseract.image_to_string(imagen_umbralizada, config='--oem 3 --psm 6')
 
-    for numero_pregunta, respuesta_correcta in respuestas_correctas.items():
-        if numero_pregunta in respuestas_estudiante:
-            respuesta_estudiante = respuestas_estudiante[numero_pregunta]
-            iou = calcular_iou(respuesta_estudiante, respuesta_correcta)
-            estado = 'OK' if iou > 0.5 else 'MAL'
-        else:
-            estado = 'NO RESPONDIÓ'
-        respuestas_evaluadas[numero_pregunta] = estado
+    lineas = text.split('\n')
 
-    return respuestas_evaluadas
-
-####probar si funciona esto
-#def calcular_iou(boxA, boxB):
-
-    #return respuestas_evaluadas
-
-def visualizar_respuestas_detectadas(image, celdas, respuestas_correctas, respuestas_estudiante, umbral_opcion_marcada):
-    """
-    Visualiza las celdas de respuesta detectadas y las opciones marcadas.
-
-    Args:
-        image (numpy.ndarray): Imagen original del examen.
-        celdas (list): Lista de tuplas que representan las celdas de respuesta: [(x0, y0, x1, y1), ...].
-        respuestas_correctas (dict): Diccionario que almacena las respuestas correctas por número de pregunta.
-        respuestas_estudiante (dict): Diccionario que almacena las respuestas del estudiante por número de pregunta.
-        umbral_opcion_marcada (int): Umbral para determinar si una opción está marcada.
-    """
-
-    imagen_con_celdas = cv2.cvtColor(image, cv2.COLOR_GRAY2RGB)
-    respuestas_evaluadas = comparar_respuestas(respuestas_correctas, respuestas_estudiante)  
-
-    for numero_pregunta, celda in enumerate(celdas, start=1):
-        x1, y1, x2, y2 = celda
-        region = image[y1:y2, x1:x2]
-        marcada = opcion_marcada(region, umbral_opcion_marcada)
-        color = (0, 255, 0) if marcada else (0, 0, 255)
-        estado = 'CORRECTA' if respuestas_evaluadas[numero_pregunta] == 'OK' else 'INCORRECTA'
-        respuesta_estudiante = respuestas_estudiante.get(numero_pregunta, 'NO RESPONDIÓ')
-
-        cv2.rectangle(imagen_con_celdas, (x1, y1), (x2, y2), color, 3)  # Dibujar rectángulo
-        cv2.putText(imagen_con_celdas, f"{numero_pregunta}. {estado} ({respuesta_estudiante})", (x1 + 5, y1 + 20),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.8, color, 2)  # Escribir texto
-
-    # Mostrar la imagen con las celdas y las respuestas detectadas
-    plt.figure(figsize=(10, 8))
-    plt.imshow(imagen_con_celdas)
-    plt.title("Respuestas detectadas")
-    plt.axis("off")
-    plt.show()
-
-    # Listado de respuestas correctas e incorrectas
-    respuestas_correctas = []
-    respuestas_incorrectas = []
-    for numero_pregunta, estado in respuestas_evaluadas.items():
-        if estado == 'OK':
-            respuestas_correctas.append(numero_pregunta)
-        else:
-            respuestas_incorrectas.append(numero_pregunta)
-
-    print("Respuestas correctas:")
-    print(respuestas_correctas)
-    print("\nRespuestas incorrectas:")
-    print(respuestas_incorrectas)
-
+    for i, line in enumerate(lineas):
+        if line.startswith("Pregunta"):
+            question_number = int(line.split()[1].strip(':'))
+            answer = line.split()[-1]
+            if answer == rtas_correctas[question_number - 1]:
+                print(f"Pregunta {question_number}: OK")
+            else:
+                print(f"Pregunta {question_number}: MAL")
+"""
 # Cargar la imagen y procesarla
 imagen = cv2.imread('C:\\Users\\betsa\\OneDrive\\Escritorio\\TUIA2024\\PDI\\TP\\TP1_PDI2024\\img\\multiple_choice_1.png', cv2.IMREAD_GRAYSCALE)
 _, imagen_umbralizada = cv2.threshold(imagen, 150, 255, cv2.THRESH_BINARY_INV)
+
 imagen_umbralizada = imagen_umbralizada[158:969, 248:539]
 
+imagen_vacia = cv2.imread('C:\\Users\\betsa\\OneDrive\\Escritorio\\TUIA2024\\PDI\\TP\\TP1_PDI2024\\img\\multiple_choice_5.png', cv2.IMREAD_GRAYSCALE)
+imagen_vacia = imagen_vacia[199:988,495:741]
+plt.imshow(imagen_vacia, cmap="gray")
+img_matriz = np.array(imagen_vacia)
+
+print(img_matriz)
 # Parámetros de umbralización específicos para detectar líneas
 umbral_lineas_horizontales = 250 * imagen_umbralizada.shape[1]
 umbral_lineas_verticales = 100 * imagen_umbralizada.shape[0]
@@ -173,7 +121,7 @@ lineas_verticales = detectar_lineas_verticales(imagen_umbralizada, umbral_lineas
 # Detectar celdas
 celdas = detectar_celdas(imagen_umbralizada, lineas_horizontales, lineas_verticales)
 
-# Respuestas correctas del programa 2
+# Respuestas correctas
 respuestas_correctas = {
     1: 'A', 2: 'A', 3: 'B', 4: 'A', 5: 'D', 6: 'B', 7: 'B', 8: 'C', 9: 'B', 10: 'A',
     11: 'D', 12: 'A', 13: 'C', 14: 'C', 15: 'D', 16: 'B', 17: 'A', 18: 'C', 19: 'C', 20: 'D',
@@ -186,5 +134,4 @@ umbral_opcion_marcada = 200
 # Obtener respuestas del estudiante
 respuestas_estudiante = obtener_respuestas_marcadas(imagen_umbralizada, umbral_opcion_marcada)
 
-# Visualizar respuestas detectadas
-visualizar_respuestas_detectadas(imagen_umbralizada, celdas, respuestas_correctas, respuestas_estudiante, umbral_opcion_marcada)
+#comparar_rtas_correctas(imagen_umbralizada)
