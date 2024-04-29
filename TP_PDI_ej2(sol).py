@@ -2,39 +2,16 @@ import cv2
 import numpy as np
 from PIL import Image, ImageOps
 from matplotlib import pyplot as plt 
+import matplotlib.patches as mpatches
 
-
-def cargar_imagenes(rutas):
-    imagenes_grises = []
+def cargar_img(rutas):
+    imagenes = []
     for ruta in rutas:
         img = cv2.imread(ruta, cv2.IMREAD_GRAYSCALE)
-        imagenes_grises.append(img)
-        mostrar_imagen(img, title=ruta)
-    return imagenes_grises
+        imagenes.append(img)
+    return imagenes
 
-def mostrar_imagen(img, new_fig=True, title=None, color_img=False, blocking=False, colorbar=True, ticks=False):
-    if new_fig:
-        plt.figure()
-    if color_img:
-        plt.imshow(img)
-    else:
-        plt.imshow(img, cmap='gray')
-    plt.title(title)
-    if not ticks:
-        plt.xticks([]), plt.yticks([])
-    if colorbar:
-        plt.colorbar()
-    if new_fig:        
-        plt.show(block=blocking)
-
-# Cargar las imágenes de los exámenes en escala de grises y mostrarlas
-rutas_examenes = ['img/multiple_choice_1.png', 'img/multiple_choice_2.png', 
-                  'img/multiple_choice_3.png', 'img/multiple_choice_4.png', 
-                  'img/multiple_choice_5.png']
-
-examenes = cargar_imagenes(rutas_examenes)
-
-def campos_encabezado_y_multiple_choice(imagen_bool):
+def procesar_form(imagen_bool):
     img_rows = np.sum(imagen_bool, 1)
     filas_validas = img_rows > 500
     indices_validos = np.where(filas_validas)[0]
@@ -122,7 +99,7 @@ def validar_campos(examen):
         resultado_fecha = "OK" if caracteres == 8 and palabras == 1 else "MAL"
         return resultado_fecha
 
-    nombre, legajo, tipo, dia, multiple_choice = campos_encabezado_y_multiple_choice(examen)
+    nombre, legajo, tipo, dia, multiple_choice = procesar_form(examen)
 
     diccionario_validacion = {
         "Nombre y Apellido": validar_nombre(nombre),
@@ -133,75 +110,58 @@ def validar_campos(examen):
 
     return diccionario_validacion, multiple_choice, nombre
 
+def respuestas(multiple_choice_binario):
+    respuestas = []  # Lista para almacenar las respuestas encontradas
+    preguntas = []   # Lista para almacenar los números de pregunta correspondientes a las respuestas encontradas
+    img_rows = np.sum(multiple_choice_binario, 1)  # Calcula el número de píxeles blancos en cada fila
+    umbral_columna_valida = 20  # Define el umbral mínimo de píxeles blancos por fila para considerarla válida
+    columnas_validas = img_rows >= umbral_columna_valida  # Encuentra las filas válidas basadas en el umbral definido
+    cambios = np.diff(columnas_validas)  # Encuentra los cambios entre filas válidas e inválidas
+    indices_renglones = np.argwhere(cambios)  # Encuentra los índices de cambio entre filas válidas e inválidas
+    indices_renglones = indices_renglones[1:]  # Descarta el primer cambio, ya que no indica un inicio de pregunta
+    indices_renglones = indices_renglones.reshape((-1,2))  # Agrupa los índices de cambio en pares representando rangos de filas
 
-def respuestas_examen(multiple_choice_binario):
-    respuestas = []
-    preguntas = []
-    img_rows = np.sum(multiple_choice_binario, 1)
-
-    umbral_columna_valida = 20
-    columnas_validas = img_rows >= umbral_columna_valida
-    cambios = np.diff(columnas_validas)    
-    indices_renglones = np.argwhere(cambios)    
-    indices_renglones = indices_renglones[1:]
-    indices_renglones = indices_renglones.reshape((-1,2))     
-
+    # Itera sobre los rangos de filas válidas donde podría haber preguntas
     for i in range(len(indices_renglones)):
-        renglon = multiple_choice_binario[indices_renglones[i][0]:indices_renglones[i][1], 0:1000]    
-        
-        # Convertir a binario para Hugues Transform
-        imagen_binaria = renglon.astype(np.uint8) * 255
+        renglon = multiple_choice_binario[indices_renglones[i][0]:indices_renglones[i][1], 0:1000]  # Recorta la región de interés de la imagen
+        imagen_binaria = renglon.astype(np.uint8) * 255  # Convierte la región recortada en una imagen binaria
+        circulos = cv2.HoughCircles(imagen_binaria, cv2.HOUGH_GRADIENT, dp=2, minDist=20, param1=50, param2=20, minRadius=10, maxRadius=20)  # Detecta círculos en la imagen binaria
+        circulos = sorted(circulos[0, :], key=lambda circle: circle[0])  # Ordena los círculos detectados por su posición en el eje X
+        circulos = np.uint16(np.around(circulos))  # Redondea las coordenadas de los círculos detectados
+        circulos = [np.append(circle, x + 1) for x, circle in enumerate(circulos)]  # Agrega un identificador de pregunta a cada círculo detectado
+        circulos = np.array(circulos)  # Convierte la lista de círculos a un array de NumPy
 
-        # Aplicar la transformada de Hough circular
-        circulos = cv2.HoughCircles(imagen_binaria, cv2.HOUGH_GRADIENT, dp=2, minDist=20, param1=50, param2=20, minRadius=10, maxRadius=20)
+        imagen_salida = cv2.cvtColor(imagen_binaria, cv2.COLOR_GRAY2BGR)  # Convierte la imagen binaria en color para dibujar sobre ella
+        tamaño_vecindad = 10  # Define el tamaño de la vecindad para comprobar si el círculo está relleno
+        cuenta = 0  # Contador de círculos rellenos dentro de una pregunta
 
-        # Ordenar por su valor en el eje X antes de revisar si están
-        circulos = sorted(circulos[0, :], key=lambda circle: circle[0])
-        
-        # Redondeo de coordenadas para el bucle  
-        circulos = np.uint16(np.around(circulos))
-
-        # Enumeración con una 4ta dimensión    
-        circulos = [np.append(circle, x + 1) for x, circle in enumerate(circulos)]    
-        
-        circulos = np.array(circulos)
-        
-        # Crear una copia de la imagen original para dibujar los círculos
-        imagen_salida = cv2.cvtColor(imagen_binaria, cv2.COLOR_GRAY2BGR)
-        
-        tamaño_vecindad = 10
-
-        cuenta = 0 
-
+        # Itera sobre los círculos detectados en la imagen binaria
         for circulo in circulos:
-            centro = (circulo[0], circulo[1])
-            radio = circulo[2]
-            # Dibujar el círculo en verde
-            cv2.circle(imagen_salida, centro, radio, (0, 255, 0), 2)
-            # Verificar si al menos una cantidad mínima de píxeles dentro del círculo están rellenos de blanco (255)
-            x, y = circulo[0], circulo[1]
-            vecindad_x = slice(max(0, x - tamaño_vecindad), min(imagen_binaria.shape[1], x + tamaño_vecindad + 1))
-            vecindad_y = slice(max(0, y - tamaño_vecindad), min(imagen_binaria.shape[0], y + tamaño_vecindad + 1))
-            píxeles_vecindad = imagen_binaria[vecindad_y, vecindad_x]
-            está_relleno = np.count_nonzero(píxeles_vecindad == 255) >= píxeles_vecindad.size * 0.5  # Al menos el 50% de la vecindad debe estar rellena
-            # Si el círculo está relleno de blanco, dibujar un contorno rojo
-            if está_relleno:
-                guarda_pregunta = np.append(preguntas, i+1)
-                guarda_respuesta = np.append(respuestas, circulo[3])
-                cv2.circle(imagen_salida, centro, radio, (0, 0, 255), 2)
-                cuenta += 1
-            
-        if cuenta == 0 or cuenta > 1:
-            preguntas = np.append(preguntas, i+1)
+            centro = (circulo[0], circulo[1])  # Coordenadas del centro del círculo
+            radio = circulo[2]  # Radio del círculo
+            cv2.circle(imagen_salida, centro, radio, (0, 255, 0), 2)  # Dibuja el círculo detectado en verde sobre la imagen de salida
+            x, y = circulo[0], circulo[1]  # Coordenadas del centro del círculo
+            vecindad_x = slice(max(0, x - tamaño_vecindad), min(imagen_binaria.shape[1], x + tamaño_vecindad + 1))  # Define la región en el eje X alrededor del centro del círculo
+            vecindad_y = slice(max(0, y - tamaño_vecindad), min(imagen_binaria.shape[0], y + tamaño_vecindad + 1))  # Define la región en el eje Y alrededor del centro del círculo
+            píxeles_vecindad = imagen_binaria[vecindad_y, vecindad_x]  # Extrae la vecindad de píxeles alrededor del centro del círculo
+            está_relleno = np.count_nonzero(píxeles_vecindad == 255) >= píxeles_vecindad.size * 0.5  # Verifica si al menos el 50% de los píxeles en la vecindad están rellenos de blanco
+            if está_relleno:  # Si el círculo está relleno de blanco
+                guarda_pregunta = np.append(preguntas, i+1)  # Guarda el número de pregunta
+                guarda_respuesta = np.append(respuestas, circulo[3])  # Guarda el identificador de respuesta
+                cv2.circle(imagen_salida, centro, radio, (0, 0, 255), 2)  # Dibuja el contorno del círculo en rojo sobre la imagen de salida
+                cuenta += 1  # Incrementa el contador de círculos rellenos
+        
+        # Determina la respuesta para la pregunta actual
+        if cuenta == 0 or cuenta > 1:  # Si no se detecta ningún círculo relleno o se detectan más de uno
+            preguntas = np.append(preguntas, i+1)  # Guarda el número de pregunta como no respondida (0)
             respuestas = np.append(respuestas, 0)
-        else:
-            preguntas = guarda_pregunta
-            respuestas = guarda_respuesta
-
+        else:  # Si se detecta exactamente un círculo relleno
+            preguntas = guarda_pregunta  # Guarda el número de pregunta
+            respuestas = guarda_respuesta  # Guarda el identificador de respuesta
+        
+    # Crea un diccionario que mapea los números de pregunta a los identificadores de respuesta y lo devuelve
     diccionario_respuestas = dict(zip(preguntas, respuestas))
-
     return diccionario_respuestas
-
 
 def corregir_examen(respuestas):
     respuestas_correctas = {
@@ -222,72 +182,104 @@ def corregir_examen(respuestas):
                 correcciones[clave] = "MAL"
 
     aprobado = contador_ok >= 20
-
     return correcciones, aprobado
 
+rutas_examenes = ['C:\\Users\\betsa\\OneDrive\\Escritorio\\TUIA2024\\PDI\\TP\\TP1_PDI2024\\img\\multiple_choice_1.png', 
+                  'C:\\Users\\betsa\\OneDrive\\Escritorio\\TUIA2024\\PDI\\TP\\TP1_PDI2024\\img\\multiple_choice_2.png', 
+                  'C:\\Users\\betsa\\OneDrive\\Escritorio\\TUIA2024\\PDI\\TP\\TP1_PDI2024\\img\\multiple_choice_3.png', 
+                  'C:\\Users\\betsa\\OneDrive\\Escritorio\\TUIA2024\\PDI\\TP\\TP1_PDI2024\\img\\multiple_choice_4.png', 
+                  'C:\\Users\\betsa\\OneDrive\\Escritorio\\TUIA2024\\PDI\\TP\\TP1_PDI2024\\img\\multiple_choice_5.png']
 
+examenes = cargar_img(rutas_examenes)
 
-resultados_concat = None  
+resultados_concatenados = None  
+
+# Inicializar contadores
+contador_aprobados = 0
+contador_reprobados = 0
 
 for indice, examen in enumerate(examenes):
+
     img_th = examen < 200   
     dic_resultados_validacion, imagen_multi_choice, nombre = validar_campos(img_th)
-    dic_respuestas_preguntas = respuestas_examen(imagen_multi_choice)
+    dic_respuestas_preguntas = respuestas(imagen_multi_choice)
     dic_examen_corregido, aprobado = corregir_examen(dic_respuestas_preguntas)
 
     if aprobado:
-        nombre_resultado = 255 - nombre  
+        nombre_resultado = 255 - nombre 
+        contador_aprobados += 1  # Incrementar contador de aprobados
     else:
         nombre_resultado = 255 + nombre
+        contador_reprobados += 1  # Incrementar contador de reprobados
 
-    if resultados_concat is None:
-        resultados_concat = nombre_resultado
+    # Concatenación de resultados
+    if resultados_concatenados is None:
+        resultados_concatenados = nombre_resultado
     else:
-        resultados_concat = np.vstack((resultados_concat, nombre_resultado))
+        resultados_concatenados = np.vstack((resultados_concatenados, nombre_resultado))
 
-    # Impresión de resultados
-    print("+------------------------+-----------+")
-    print(f"|         EXAMEN {indice+1}                   |")
-    print("+------------------------+-----------+")
-    print("| Validación Campos      | Resultado |")
-    print("+------------------------+-----------+")
-        
+    # Impresión de resultados sin guiones
+    print(f"EXAMEN {indice+1} RESULTADOS:")
+    print("Validación Campos:")
     for campo, resultado in dic_resultados_validacion.items():
-        print(f"| {campo:<22} |   {resultado:<7} |")
-        print("+------------------------+-----------+")
-
-    print("+------------------------+-----------+")
-    print("|           Corrección               |")
-    print("+------------------------+-----------+")
-    print("| Preguntas              | Resultado |")
-    print("+------------------------+-----------+")
-
+        print(f"{campo}: {resultado}")
+    print("\nCorrección:")
     for pregunta, resultado in dic_examen_corregido.items():
-        print(f"| {int(pregunta):<22} |   {resultado:<7} |")
-        print("+------------------------+-----------+")
-
-    print("")
-    input("PRESIONE ENTER PARA EVALUAR EL PRÓXIMO EXAMEN...")
-    print("")
-
+        print(f"Pregunta {pregunta}: {resultado}")
 
 # Normalización de los valores para que puedan ser guardados en una imagen
-min_val = np.min(resultados_concat)
-max_val = np.max(resultados_concat)
-resultados_normalizados = 255 * (resultados_concat - min_val) / (max_val - min_val)
+min_val = np.min(resultados_concatenados)
+max_val = np.max(resultados_concatenados)
+resultados_normalizados = 255 * (resultados_concatenados - min_val) / (max_val - min_val)
 resultados_normalizados = resultados_normalizados.astype(np.uint8)
-
 # Guardar la imagen
-cv2.imwrite('nota_examen.png', resultados_normalizados)
+cv2.imwrite('resultados_examen.png', resultados_normalizados)
 
-print("La imagen nota_examen.png contiene aquellos alumnos que han aprobado y aquellos que han reprobado")
-print("El alumno ha aprobado si en la imagen nota_examen.png el nombre aparece en negro")
-print("El alumno ha reprobado si en la imagen nota_examen.png el nombre aparece en blanco")
-print("")
+# Asegurar que la imagen no esté completamente en blanco
+print("Valor mínimo en la imagen:", np.min(resultados_normalizados))
+print("Valor máximo en la imagen:", np.max(resultados_normalizados))
 
-# Se muestra la imagen de alumnos aprobados (nombre en negro) y reprobados (nombre en blanco)
+# Crear una copia de la imagen para modificar los colores
+resultados_colores = cv2.cvtColor(resultados_normalizados, cv2.COLOR_GRAY2BGR)
 
-plt.imshow(resultados_normalizados, cmap='gray')
+# Definir colores en formato BGR
+color_aprobado = (0, 255, 0)  # Verde
+color_reprobado = (0, 0, 255)  # Rojo
+resultados_colores[resultados_colores == [255, 255, 255]] = [255, 255, 255]
+
+# Obtener los índices de los nombres de los alumnos aprobados y reprobados
+aprobados_indices = np.where(resultados_normalizados == 0)  # En la imagen en blanco y negro, los aprobados están en 0 (negro)
+reprobados_indices = np.where(resultados_normalizados == 255)  # En la imagen en blanco y negro, los reprobados están en 255 (blanco)
+
+# Pintar los nombres de los alumnos aprobados en verde y los reprobados en rojo
+resultados_colores[aprobados_indices] = color_aprobado
+resultados_colores[reprobados_indices] = color_reprobado
+
+# Mostrar la imagen con los nombres de los alumnos coloreados y más grande
+fondo_blanco = np.full_like(resultados_colores, (255, 255, 255), dtype=np.uint8)
+
+# Superponer la imagen coloreada sobre el fondo blanco
+imagen_con_fondo_blanco = np.where(resultados_colores == 0, resultados_colores, fondo_blanco)
+plt.figure(figsize=(7, 4))  # tamaño de la figura
+
+
+# Mostrar la imagen con los nombres de los alumnos coloreados
+plt.imshow(cv2.cvtColor(imagen_con_fondo_blanco, cv2.COLOR_BGR2RGB))
+plt.title('RESULTADOS DEL EXAMEN')
+plt.xlabel('ALUMNOS APROBADOS (en verde)  /  ALUMNOS REPROBADOS (en rojo)')
+plt.ylabel('NOMBRES DE LOS ALUMNOS')
+plt.xticks([])
+plt.yticks([])
+
+# Agregar leyenda
+aprobado_patch = mpatches.Patch(color='green', label='Alumnos Aprobados')
+reprobado_patch = mpatches.Patch(color='red', label='Alumnos Reprobados')
+plt.legend(handles=[aprobado_patch, reprobado_patch], loc='upper right')
 plt.show()
 
-
+print("RESULTADOS GUARDADOS: resultados_examen.png")
+print("Los nombres de los alumnos que han APROBADO se muestran en color VERDE en la imagen.")
+print("Los nombres de los alumnos que han REPROBADO se muestran en color ROJO en la imagen.")
+# Imprimir cantidad de nombres de alumnos aprobados y reprobados
+print("Cantidad de nombres de alumnos aprobados:", contador_aprobados)
+print("Cantidad de nombres de alumnos reprobados:", contador_reprobados)
