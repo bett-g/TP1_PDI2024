@@ -45,37 +45,48 @@ def procesar_form(imagen_bool):
     tipo = imagen_bool[indice_inicial:indice_final, inicio_sub_imgs[6]:fin_sub_imgs[6]]
     fecha = imagen_bool[indice_inicial:indice_final, inicio_sub_imgs[8]:fin_sub_imgs[8]]
     multiple_choice = imagen_bool[indice_final + 2:, :]
-
+    print("Inicio del nombre:", inicio_sub_imgs[2])
+    print("Fin del nombre:", fin_sub_imgs[2])
     return nombre, id, tipo, fecha, multiple_choice
 
-def contar_componentes_conectados(img):
+def componentes_conectados(img):
+    # Convierte la imagen a tipo uint8
     f_point = img.astype(np.uint8)
+    
+    # Calcula los componentes conectados
     connectivity = 8
     num_labels, _, stats, _ = cv2.connectedComponentsWithStats(f_point, connectivity, cv2.CV_32S)
+    
+    # Inicializa variables para contar caracteres y palabras
     caracteres = 0
     palabras = 0
+    
+    # Calcula el número de caracteres y palabras
     if num_labels <= 2:
         caracteres = num_labels - 1
         palabras = num_labels - 1
     else:   
-        ind_ord = np.argsort(stats[:,0])
+        # Ordena las estadísticas por coordenada x
+        ind_ord = np.argsort(stats[:, 0])
         stats_ord = stats[ind_ord]
-        resultados = []
-        for i in range(2,num_labels):
-            fila_actual = stats_ord[i]
-            fila_anterior = stats_ord[i - 1]
-            suma = fila_actual[0] - (fila_anterior[0] + fila_anterior[2])        
-            resultados.append(suma)    
-        espacios = sum(1 for valor in resultados if valor >= 25500)
+        
+        # Calcula las diferencias horizontales entre los componentes
+        diferencias = np.diff(stats_ord[:, 0])
+        
+        # Calcula el número de espacios (palabras)
+        espacios = np.sum(diferencias >= 5)
+        
+        # Calcula el número de caracteres
         palabras = espacios + 1
         caracteres = num_labels + espacios - 1
+    
     return caracteres, palabras
-
+"""
 def validar_campos(examen):  
     nombre, legajo, tipo, dia, multiple_choice = procesar_form(examen)
 
     def validar_componente(componente, caracteres_requeridos, palabras_requeridas=None):
-        caracteres, palabras = contar_componentes_conectados(componente)
+        caracteres, palabras = componentes_conectados(componente)
         if palabras_requeridas is None:
             resultado = "OK" if caracteres == caracteres_requeridos else "MAL"
         else:
@@ -90,6 +101,41 @@ def validar_campos(examen):
     }
 
     return diccionario_validacion, multiple_choice, nombre
+"""
+def validar_campos(examen):  
+    nombre, legajo, tipo, dia, multiple_choice = procesar_form(examen)
+
+    def validar_componente(componente, caracteres_requeridos, max_caracteres=None):
+        caracteres, _ = componentes_conectados(componente)  # Ignoramos el segundo valor retornado
+        if max_caracteres is None:
+            resultado = "OK" if caracteres == caracteres_requeridos else "MAL"
+        else:
+            longitud_nombre = len(''.join(map(str, componente[0])))  # Calcular longitud del nombre y apellido
+            resultado = "OK" if caracteres == caracteres_requeridos and longitud_nombre <= max_caracteres else "MAL"
+        return resultado
+    
+    def validar_nombre(nombre):
+        # Calcula el número de caracteres y palabras en el nombre
+        caracteres, palabras = componentes_conectados(nombre)
+        
+        # Determina si el nombre es válido en función del número de caracteres y palabras
+        if 1 < caracteres <= 25 and palabras >= 2:  # Modificación aquí
+            resultado = "OK"
+        else:
+            resultado = "MAL"
+        
+        return resultado
+
+    diccionario_validacion = {
+        "Nombre y Apellido": validar_nombre(nombre),
+        "Legajo": validar_componente(legajo, caracteres_requeridos=8),
+        "Código": validar_componente(tipo, caracteres_requeridos=1),
+        "Fecha": validar_componente(dia, caracteres_requeridos=8)
+    }
+
+    return diccionario_validacion, multiple_choice, nombre
+
+
 
 def detectar_circulos(imagen_binaria):
     circulos = cv2.HoughCircles(imagen_binaria, cv2.HOUGH_GRADIENT, dp=2, minDist=20, param1=50, param2=20, minRadius=10, maxRadius=20)
