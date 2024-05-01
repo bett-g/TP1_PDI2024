@@ -12,9 +12,13 @@
 
 2. **Preparación del entorno:**
 
-   - Activar el entorno virtual y proceder a instalar las librerías necesarias.
+   - Crear el entorno virtual y proceder a instalar las librerías necesarias.
      ```
-     $ source venv/bin/activate
+     $ py -m venv PDI-2024
+     $ pip install numpy
+     $ pip install matplotlib
+     $ pip install opencv-contrib-Python
+     $ pip install Pillow
      ```
 
 3. **Ejecución de los ejercicios:**
