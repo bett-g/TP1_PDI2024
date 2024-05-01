@@ -16,7 +16,6 @@
      $ pip install numpy
      $ pip install matplotlib
      $ pip install opencv-contrib-Python
-     $ pip install Pillow
      ```
 
 3. **Ejecución de los ejercicios:**
