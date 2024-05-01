@@ -168,11 +168,11 @@ def corregir_examen(respuestas):
     return correcciones, aprobado
 
 def main():
-    rutas_examenes = ['img\multiple_choice_1.png', 
-                      'img\multiple_choice_2.png', 
-                      'img\multiple_choice_3.png', 
-                      'img\multiple_choice_4.png', 
-                      'img\multiple_choice_5.png']
+    rutas_examenes = ['img/multiple_choice_1.png', 
+                      'img/multiple_choice_2.png', 
+                      'img/multiple_choice_3.png', 
+                      'img/multiple_choice_4.png', 
+                      'img/multiple_choice_5.png']
 
     examenes = cargar_img(rutas_examenes)
     resultados_concatenados = None  

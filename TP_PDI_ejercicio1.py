@@ -32,7 +32,7 @@ def apply_local_histogram_equalization(image, window_size):
     return result_image
 
 # Carga la imagen original
-ruta_imagen = 'img\Imagen_con_detalles_escondidos.tif'
+ruta_imagen = 'img/Imagen_con_detalles_escondidos.tif'
 imagen_original = cv2.imread(ruta_imagen, cv2.IMREAD_GRAYSCALE)
 
 # Aplica la ecualización de histograma local con diferentes tamaños de ventana
