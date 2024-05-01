@@ -7,7 +7,7 @@
    - Crear un entorno virtual dentro del directorio `tp1`.
      ```
      $ cd tp1
-     $ python3 -m venv venv
+     $ python -m venv venv
      ```
 
 2. **Preparación del entorno:**
@@ -21,11 +21,11 @@
 
    - Ejecutar el primer ejercicio.
      ```
-     $ python3 TP_PDI_ejercicio1.py
+     $ python TP_PDI_ejercicio1.py
      ```
    - Ejecutar el segundo ejercicio.
      ```
-     $ python3 TP_PDI_ejercicio2.py
+     $ python TP_PDI_ejercicio2.py
      ```
 
 
