@@ -3,18 +3,16 @@
 ### Instrucciones para ejecutar el TP:
 
 1. **Configuración inicial:**
-
-   - Crear un entorno virtual dentro del directorio `tp1`.
+   - Instalar la versión de Python 3.12
+   - Crear un entorno virtual dentro del directorio.
      ```
-     $ cd tp1
      $ python -m venv venv
      ```
 
 2. **Preparación del entorno:**
 
-   - Crear el entorno virtual y proceder a instalar las librerías necesarias.
+   - Proceder a instalar las librerías necesarias.
      ```
-     $ py -m venv PDI-2024
      $ pip install numpy
      $ pip install matplotlib
      $ pip install opencv-contrib-Python
